@@ -1,0 +1,8 @@
+/home/taylon/Development/playground/glfw/rust/target/debug/build/glfw-sys-6474486613d7eda4/out/include/GLFW/glfw3native.h
+/home/taylon/Development/playground/glfw/rust/target/debug/build/glfw-sys-6474486613d7eda4/out/include/GLFW/glfw3.h
+/home/taylon/Development/playground/glfw/rust/target/debug/build/glfw-sys-6474486613d7eda4/out/lib/cmake/glfw3/glfw3Config.cmake
+/home/taylon/Development/playground/glfw/rust/target/debug/build/glfw-sys-6474486613d7eda4/out/lib/cmake/glfw3/glfw3ConfigVersion.cmake
+/home/taylon/Development/playground/glfw/rust/target/debug/build/glfw-sys-6474486613d7eda4/out/lib/cmake/glfw3/glfw3Targets.cmake
+/home/taylon/Development/playground/glfw/rust/target/debug/build/glfw-sys-6474486613d7eda4/out/lib/cmake/glfw3/glfw3Targets-debug.cmake
+/home/taylon/Development/playground/glfw/rust/target/debug/build/glfw-sys-6474486613d7eda4/out/lib/pkgconfig/glfw3.pc
+/home/taylon/Development/playground/glfw/rust/target/debug/build/glfw-sys-6474486613d7eda4/out/lib/libglfw3.a

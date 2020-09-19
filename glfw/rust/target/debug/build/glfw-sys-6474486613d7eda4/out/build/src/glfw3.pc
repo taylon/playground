@@ -1,0 +1,13 @@
+prefix=/home/taylon/Development/playground/glfw/rust/target/debug/build/glfw-sys-6474486613d7eda4/out
+exec_prefix=${prefix}
+includedir=/home/taylon/Development/playground/glfw/rust/target/debug/build/glfw-sys-6474486613d7eda4/out/include
+libdir=/home/taylon/Development/playground/glfw/rust/target/debug/build/glfw-sys-6474486613d7eda4/out/lib
+
+Name: GLFW
+Description: A multi-platform library for OpenGL, window and input
+Version: 3.3.2
+URL: https://www.glfw.org/
+Requires.private:  x11
+Libs: -L${libdir} -lglfw3
+Libs.private:  -lrt -lm -ldl
+Cflags: -I${includedir}

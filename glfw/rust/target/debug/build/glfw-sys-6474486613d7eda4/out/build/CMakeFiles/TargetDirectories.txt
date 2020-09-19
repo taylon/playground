@@ -1,0 +1,14 @@
+/home/taylon/Development/playground/glfw/rust/target/debug/build/glfw-sys-6474486613d7eda4/out/build/CMakeFiles/install/strip.dir
+/home/taylon/Development/playground/glfw/rust/target/debug/build/glfw-sys-6474486613d7eda4/out/build/CMakeFiles/install/local.dir
+/home/taylon/Development/playground/glfw/rust/target/debug/build/glfw-sys-6474486613d7eda4/out/build/CMakeFiles/install.dir
+/home/taylon/Development/playground/glfw/rust/target/debug/build/glfw-sys-6474486613d7eda4/out/build/CMakeFiles/list_install_components.dir
+/home/taylon/Development/playground/glfw/rust/target/debug/build/glfw-sys-6474486613d7eda4/out/build/CMakeFiles/rebuild_cache.dir
+/home/taylon/Development/playground/glfw/rust/target/debug/build/glfw-sys-6474486613d7eda4/out/build/CMakeFiles/edit_cache.dir
+/home/taylon/Development/playground/glfw/rust/target/debug/build/glfw-sys-6474486613d7eda4/out/build/CMakeFiles/uninstall.dir
+/home/taylon/Development/playground/glfw/rust/target/debug/build/glfw-sys-6474486613d7eda4/out/build/src/CMakeFiles/install/strip.dir
+/home/taylon/Development/playground/glfw/rust/target/debug/build/glfw-sys-6474486613d7eda4/out/build/src/CMakeFiles/install.dir
+/home/taylon/Development/playground/glfw/rust/target/debug/build/glfw-sys-6474486613d7eda4/out/build/src/CMakeFiles/list_install_components.dir
+/home/taylon/Development/playground/glfw/rust/target/debug/build/glfw-sys-6474486613d7eda4/out/build/src/CMakeFiles/rebuild_cache.dir
+/home/taylon/Development/playground/glfw/rust/target/debug/build/glfw-sys-6474486613d7eda4/out/build/src/CMakeFiles/edit_cache.dir
+/home/taylon/Development/playground/glfw/rust/target/debug/build/glfw-sys-6474486613d7eda4/out/build/src/CMakeFiles/install/local.dir
+/home/taylon/Development/playground/glfw/rust/target/debug/build/glfw-sys-6474486613d7eda4/out/build/src/CMakeFiles/glfw.dir

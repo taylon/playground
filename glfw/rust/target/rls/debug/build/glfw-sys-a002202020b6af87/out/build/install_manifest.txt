@@ -1,0 +1,8 @@
+/home/taylon/Development/playground/glfw/rust/target/rls/debug/build/glfw-sys-a002202020b6af87/out/include/GLFW/glfw3native.h
+/home/taylon/Development/playground/glfw/rust/target/rls/debug/build/glfw-sys-a002202020b6af87/out/include/GLFW/glfw3.h
+/home/taylon/Development/playground/glfw/rust/target/rls/debug/build/glfw-sys-a002202020b6af87/out/lib/cmake/glfw3/glfw3Config.cmake
+/home/taylon/Development/playground/glfw/rust/target/rls/debug/build/glfw-sys-a002202020b6af87/out/lib/cmake/glfw3/glfw3ConfigVersion.cmake
+/home/taylon/Development/playground/glfw/rust/target/rls/debug/build/glfw-sys-a002202020b6af87/out/lib/cmake/glfw3/glfw3Targets.cmake
+/home/taylon/Development/playground/glfw/rust/target/rls/debug/build/glfw-sys-a002202020b6af87/out/lib/cmake/glfw3/glfw3Targets-debug.cmake
+/home/taylon/Development/playground/glfw/rust/target/rls/debug/build/glfw-sys-a002202020b6af87/out/lib/pkgconfig/glfw3.pc
+/home/taylon/Development/playground/glfw/rust/target/rls/debug/build/glfw-sys-a002202020b6af87/out/lib/libglfw3.a
