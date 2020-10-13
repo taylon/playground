@@ -15,9 +15,12 @@ set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 
 add_subdirectory(include/GLFW)
 add_subdirectory(include/glad)
+include_directories(include/stb_image)
 
 file(GLOB SOURCES src/*.cpp)
 add_executable(${EXECUTABLE_NAME} ${SOURCES})
+
+link_directories(include/stb_image) 
 
 target_link_libraries(${EXECUTABLE_NAME}
   PRIVATE
