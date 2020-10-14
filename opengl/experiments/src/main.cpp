@@ -1,3 +1,4 @@
+#include "glm/trigonometric.hpp"
 #include <iostream>
 #include <cmath>
 
@@ -5,6 +6,9 @@
 #include <stb_image.h>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 #include "shaders.h"
 
@@ -35,64 +39,92 @@ int main(void) {
   }
   glfwMakeContextCurrent(window);
   glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
-  // --
 
-  // load OpenGL function pointers
+  // Setup OpenGL
   if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
     std::cout << "Failed to initialize GLAD" << std::endl;
     return -1;
   }
-  // --
+
+  glEnable(GL_DEPTH_TEST);
+  // ---
 
   auto shaderProgram = createShaderProgram();
 
-  // Bind vertex array object
+  // Copy the vertices data to the GPU
   unsigned int vertexArrayObject;
   glGenVertexArrays(1, &vertexArrayObject);
   glBindVertexArray(vertexArrayObject);
 
-  // copy the vertices data to the GPU
   // clang-format off
-  float vertices[] = {
-    // positions          // colors           // texture coords
-     0.5f,  0.5f, 0.0f,   1.0f, 0.0f, 0.0f,   1.0f, 1.0f,   // top right
-     0.5f, -0.5f, 0.0f,   0.0f, 1.0f, 0.0f,   1.0f, 0.0f,   // bottom right
-    -0.5f, -0.5f, 0.0f,   0.0f, 0.0f, 1.0f,   0.0f, 0.0f,   // bottom left
-    -0.5f,  0.5f, 0.0f,   1.0f, 1.0f, 0.0f,   0.0f, 1.0f    // top left 
-  };
+  /* float vertices[] = { */
+  /*   // positions          // colors           // texture coords */
+  /*    0.5f,  0.5f, 0.0f,   1.0f, 0.0f, 0.0f,   1.0f, 1.0f,   // top right */
+  /*    0.5f, -0.5f, 0.0f,   0.0f, 1.0f, 0.0f,   1.0f, 0.0f,   // bottom right */
+  /*   -0.5f, -0.5f, 0.0f,   0.0f, 0.0f, 1.0f,   0.0f, 0.0f,   // bottom left */
+  /*   -0.5f,  0.5f, 0.0f,   1.0f, 1.0f, 0.0f,   0.0f, 1.0f    // top left */ 
+  /* }; */
 
-  unsigned int indices[] = {  // note that we start from 0!
-    0, 1, 3,   // first triangle
-    1, 2, 3    // second triangle
-  };
+  float vertices[] = {
+    -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+     0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
+     0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+     0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+    -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+
+    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+     0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+     0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+     0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+    -0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
+    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+
+    -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+    -0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+    -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+
+     0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+     0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+     0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+     0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+     0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+     0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+
+    -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+     0.5f, -0.5f, -0.5f,  1.0f, 1.0f,
+     0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+     0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+    -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+
+    -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+     0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+     0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+     0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+    -0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
+    -0.5f,  0.5f, -0.5f,  0.0f, 1.0f
+    };
   // clang-format on
 
   unsigned int vertexBuffer;
   glGenBuffers(1, &vertexBuffer);
   glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
   glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-  unsigned int elementBuffer;
-  glGenBuffers(1, &elementBuffer);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementBuffer);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices,
-               GL_STATIC_DRAW);
   // --
 
   // set the vertex attributes pointers
   // position
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)0);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)0);
   glEnableVertexAttribArray(0);
 
-  // color
-  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float),
+  // texture coordinate
+  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float),
                         (void *)(3 * sizeof(float)));
   glEnableVertexAttribArray(1);
-
-  // texture coordinate
-  glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float),
-                        (void *)(6 * sizeof(float)));
-  glEnableVertexAttribArray(2);
 
   // Textures
   stbi_set_flip_vertically_on_load(true);
@@ -111,8 +143,8 @@ int main(void) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
   int width, height, nrChannels;
-  unsigned char *containerTextureData = stbi_load(
-      "../assets/textures/container.jpg", &width, &height, &nrChannels, 0);
+  auto *containerTextureData = stbi_load("../assets/textures/container.jpg",
+                                         &width, &height, &nrChannels, 0);
   if (!containerTextureData) {
     std::cout << "Failed to load container texture" << std::endl;
   }
@@ -135,8 +167,8 @@ int main(void) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-  unsigned char *awesomeFaceTextureData = stbi_load(
-      "../assets/textures/awesomeface.png", &width, &height, &nrChannels, 0);
+  auto *awesomeFaceTextureData = stbi_load("../assets/textures/awesomeface.png",
+                                           &width, &height, &nrChannels, 0);
   if (!awesomeFaceTextureData) {
     std::cout << "Failed to load awesomeFace texture" << std::endl;
   }
@@ -150,11 +182,18 @@ int main(void) {
   glUniform1i(glGetUniformLocation(shaderProgram, "containerTexture"), 0);
   glUniform1i(glGetUniformLocation(shaderProgram, "awesomeFaceTexture"), 1);
 
+  glm::vec3 cubePositions[] = {
+      glm::vec3(0.0f, 0.0f, 0.0f),    glm::vec3(2.0f, 5.0f, -15.0f),
+      glm::vec3(-1.5f, -2.2f, -2.5f), glm::vec3(-3.8f, -2.0f, -12.3f),
+      glm::vec3(2.4f, -0.4f, -3.5f),  glm::vec3(-1.7f, 3.0f, -7.5f),
+      glm::vec3(1.3f, -2.0f, -2.5f),  glm::vec3(1.5f, 2.0f, -2.5f),
+      glm::vec3(1.5f, 0.2f, -1.5f),   glm::vec3(-1.3f, 1.0f, -1.5f)};
+
   while (!glfwWindowShouldClose(window)) {
     processInput(window);
 
     glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // bind textures on corresponding texture units
     glActiveTexture(GL_TEXTURE0);
@@ -163,20 +202,37 @@ int main(void) {
     glBindTexture(GL_TEXTURE_2D, awesomeFaceTexture);
 
     glUseProgram(shaderProgram);
+
+    // 3D transformations
+    glm::mat4 model = glm::mat4(1.0f);
+    model = glm::rotate(model, (float)glfwGetTime() * glm::radians(50.0f),
+                        glm::vec3(0.5f, 1.0f, 0.0f));
+    int modelLoc = glGetUniformLocation(shaderProgram, "model");
+    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+
+    glm::mat4 view = glm::mat4(1.0f);
+    view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
+    int viewLoc = glGetUniformLocation(shaderProgram, "view");
+    glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+
+    glm::mat4 projection;
+    projection =
+        glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 100.0f);
+    int projectionLoc = glGetUniformLocation(shaderProgram, "projection");
+    glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
+    // ----
+
     glBindVertexArray(vertexArrayObject);
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    for (auto i = 0; i < 10; i++) {
+      glm::mat4 model = glm::mat4(1.0f);
+      model = glm::translate(model, cubePositions[i]);
+      float angle = 20.0f * i;
+      model =
+          glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
+      glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 
-    /* auto timeValue = glfwGetTime(); */
-    /* auto greenValue = (sin(timeValue) / 2.0f) + 0.5f; */
-    /* auto vertexColorLocation = glGetUniformLocation(shaderProgram,
-     * "vertexColor"); */
-    /* glUniform4f(vertexColorLocation, 0.0f, greenValue, 0.0f, 1.0f); */
-
-    /* glBindVertexArray(vertexArrayObject); */
-    /* glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); */
-    /* glDrawArrays(GL_TRIANGLES, 0, 3); */
-
-    /* glBindTexture(GL_TEXTURE_2D, texture); */
+      glDrawArrays(GL_TRIANGLES, 0, 36);
+    }
 
     glfwSwapBuffers(window);
     glfwPollEvents();
@@ -184,7 +240,6 @@ int main(void) {
 
   glDeleteVertexArrays(1, &vertexArrayObject);
   glDeleteBuffers(1, &vertexBuffer);
-  glDeleteBuffers(1, &elementBuffer);
 
   glfwTerminate();
 
