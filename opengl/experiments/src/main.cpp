@@ -10,6 +10,7 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include "shaders.h"
+#include "textures.h"
 
 void framebufferSizeCallback(GLFWwindow *window, int width, int height) {
   glViewport(0, 0, width, height);
@@ -55,15 +56,6 @@ void scrollCallback(GLFWwindow *window, double xoffset, double yoffset) {
   }
 }
 
-auto lastFrame = 0.0f;
-float calculateCameraSpeed() {
-  float currentFrame = glfwGetTime();
-  auto deltaTime = currentFrame - lastFrame;
-  lastFrame = currentFrame;
-
-  return deltaTime;
-}
-
 int main(void) {
   // init glfw
   glfwInit();
@@ -96,22 +88,12 @@ int main(void) {
   glEnable(GL_DEPTH_TEST);
   // ---
 
-  auto shaderProgram = createShaderProgram();
-
   // Copy the vertices data to the GPU
   unsigned int vertexArrayObject;
   glGenVertexArrays(1, &vertexArrayObject);
   glBindVertexArray(vertexArrayObject);
 
   // clang-format off
-  /* float vertices[] = { */
-  /*   // positions          // colors           // texture coords */
-  /*    0.5f,  0.5f, 0.0f,   1.0f, 0.0f, 0.0f,   1.0f, 1.0f,   // top right */
-  /*    0.5f, -0.5f, 0.0f,   0.0f, 1.0f, 0.0f,   1.0f, 0.0f,   // bottom right */
-  /*   -0.5f, -0.5f, 0.0f,   0.0f, 0.0f, 1.0f,   0.0f, 0.0f,   // bottom left */
-  /*   -0.5f,  0.5f, 0.0f,   1.0f, 1.0f, 0.0f,   0.0f, 1.0f    // top left */ 
-  /* }; */
-
   float vertices[] = {
     -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
      0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
@@ -173,59 +155,15 @@ int main(void) {
                         (void *)(3 * sizeof(float)));
   glEnableVertexAttribArray(1);
 
+  auto shaderProgram = createShaderProgram();
+  glUseProgram(shaderProgram);
+
   // Textures
   stbi_set_flip_vertically_on_load(true);
+  auto containerTexture = buildContanierTexture();
+  auto awesomeFaceTexture = buildAwesomeFaceTexture();
 
-  // Container
-  unsigned int containerTexture;
-  glGenTextures(1, &containerTexture);
-  glBindTexture(GL_TEXTURE_2D, containerTexture);
-
-  // wrapping
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
-  // filtering
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-  int width, height, nrChannels;
-  auto *containerTextureData = stbi_load("../assets/textures/container.jpg",
-                                         &width, &height, &nrChannels, 0);
-  if (!containerTextureData) {
-    std::cout << "Failed to load container texture" << std::endl;
-  }
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB,
-               GL_UNSIGNED_BYTE, containerTextureData);
-  glGenerateMipmap(GL_TEXTURE_2D);
-  stbi_image_free(containerTextureData);
-  // Container --
-
-  // awesome face
-  unsigned int awesomeFaceTexture;
-  glGenTextures(1, &awesomeFaceTexture);
-  glBindTexture(GL_TEXTURE_2D, awesomeFaceTexture);
-
-  // wrapping
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
-  // filtering
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-  auto *awesomeFaceTextureData = stbi_load("../assets/textures/awesomeface.png",
-                                           &width, &height, &nrChannels, 0);
-  if (!awesomeFaceTextureData) {
-    std::cout << "Failed to load awesomeFace texture" << std::endl;
-  }
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
-               GL_UNSIGNED_BYTE, awesomeFaceTextureData);
-  glGenerateMipmap(GL_TEXTURE_2D);
-  stbi_image_free(awesomeFaceTextureData);
-  // awesome face
-
-  glUseProgram(shaderProgram);
+  // textures uniforms
   glUniform1i(glGetUniformLocation(shaderProgram, "containerTexture"), 0);
   glUniform1i(glGetUniformLocation(shaderProgram, "awesomeFaceTexture"), 1);
 
@@ -240,11 +178,32 @@ int main(void) {
   auto cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
   auto cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
+  auto lastFrameTime = 0.0f;
   while (!glfwWindowShouldClose(window)) {
+    glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // do I really need to call this every time?
+    // bind textures on corresponding texture units
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, containerTexture);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, awesomeFaceTexture);
+
+    // do I need to call this in the render loop?
+    /* glUseProgram(shaderProgram); */
+
+    // input
     processInput(window);
 
+    // per frame time tracking
+    float currentFrameTime = glfwGetTime();
+    auto timeSinceLastFrame = currentFrameTime - lastFrameTime;
+    lastFrameTime = currentFrameTime;
+    // --
+
     // tmp camera movement input
-    const auto cameraSpeed = calculateCameraSpeed() * 2.5f;
+    auto cameraSpeed = timeSinceLastFrame * 2.5f;
     if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
       cameraPos += cameraSpeed * cameraFront;
     if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
@@ -263,17 +222,6 @@ int main(void) {
     direction.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
     cameraFront = glm::normalize(direction);
 
-    glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    // bind textures on corresponding texture units
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, containerTexture);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, awesomeFaceTexture);
-
-    glUseProgram(shaderProgram);
-
     // camera
     auto cameraTarget = glm::vec3(0.0f, 0.0f, 0.0f);
     auto cameraDirection = glm::normalize(cameraPos - cameraTarget);
@@ -287,9 +235,6 @@ int main(void) {
 
     auto projection =
         glm::perspective(glm::radians(fov), 800.0f / 600.0f, 0.1f, 100.0f);
-    /* auto projection = */
-    /*     glm::perspective(glm::radians(60.0f), 800.0f / 600.0f, 0.1f, 100.0f);
-     */
     glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1,
                        GL_FALSE, glm::value_ptr(projection));
     // ----
