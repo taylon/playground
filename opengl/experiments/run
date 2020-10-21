@@ -8,4 +8,9 @@ cd $BUILD_DIR || exit
 cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=1 ..
 make
 
-./openglfun
+PID=$(pidof openglfun)
+if [ -n "$PID" ]; then
+  kill -9 "$PID"
+fi
+
+./openglfun &
