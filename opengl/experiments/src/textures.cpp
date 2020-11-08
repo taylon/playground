@@ -1,4 +1,4 @@
-#include <iostream>
+#include <stdio.h>
 
 #include <stb_image.h>
 #include <glad/glad.h>
@@ -21,7 +21,7 @@ unsigned int buildAwesomeFaceTexture() {
   auto *awesomeFaceTextureData = stbi_load("../assets/textures/awesomeface.png",
                                            &width, &height, &nrChannels, 0);
   if (!awesomeFaceTextureData) {
-    std::cout << "Failed to load awesomeFace texture" << std::endl;
+    fprintf(stderr, "failed to load awesomeFace texture\n");
   }
 
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
@@ -49,7 +49,7 @@ unsigned int buildContanierTexture() {
   auto *containerTextureData = stbi_load("../assets/textures/container.jpg",
                                          &width, &height, &nrChannels, 0);
   if (!containerTextureData) {
-    std::cout << "Failed to load container texture" << std::endl;
+    fprintf(stderr, "failed to load container texture\n");
   }
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB,
                GL_UNSIGNED_BYTE, containerTextureData);

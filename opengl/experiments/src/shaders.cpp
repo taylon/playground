@@ -1,35 +1,30 @@
-#include <iostream>
+#include <stdio.h>
+#include <stdlib.h>
 
 #include <glad/glad.h>
 
-#include <fstream>
-#include <sstream>
-
-std::string readShaderFile(std::string filePath) {
-  std::string fileContent;
-  std::ifstream file;
-  file.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-
-  try {
-    file.open(filePath);
-
-    std::stringstream stream;
-    stream << file.rdbuf();
-    file.close();
-
-    fileContent = stream.str();
-  } catch (std::ifstream::failure e) {
-    std::cout << "unable to read shader file: " << filePath << " - " << e.what()
-              << std::endl;
+char *readShaderFile(const char *filePath) {
+  auto file = fopen(filePath, "r");
+  if (file == NULL) {
+    fprintf(stderr, "unable to open the file: %s\n", filePath);
+    exit(EXIT_FAILURE);
   }
 
-  return fileContent.c_str();
+  fseek(file, 0, SEEK_END);
+  auto fileLength = ftell(file);
+  fseek(file, 0, SEEK_SET);
+
+  auto buffer = (char *)malloc(fileLength + 1);
+  buffer[fileLength] = '\0';
+  fread(buffer, sizeof(char), fileLength, file);
+
+  fclose(file);
+  return buffer;
 }
 
-unsigned int createShader(unsigned int type, const std::string &source) {
+unsigned int createShader(unsigned int type, const char *source) {
   auto shader = glCreateShader(type);
-  const char *src = source.c_str();
-  glShaderSource(shader, 1, &src, nullptr);
+  glShaderSource(shader, 1, &source, nullptr);
   glCompileShader(shader);
 
   int success;
@@ -40,21 +35,30 @@ unsigned int createShader(unsigned int type, const std::string &source) {
 
     auto message = (char *)alloca(length * sizeof(char));
     glGetShaderInfoLog(shader, length, &length, message);
-    std::cout << "unable to create shader: " << message << std::endl;
+    fprintf(stderr, "unable to create shader: %s\n", message);
   }
 
   return shader;
 }
 
-unsigned int createVertexShader(std::string filePath) {
-  return createShader(GL_VERTEX_SHADER, readShaderFile(filePath));
+unsigned int createVertexShader(const char *filePath) {
+  auto fileContent = readShaderFile(filePath);
+  auto shader = createShader(GL_VERTEX_SHADER, fileContent);
+
+  free(fileContent);
+  return shader;
 }
 
-unsigned int createFragmentShader(std::string filePath) {
-  return createShader(GL_FRAGMENT_SHADER, readShaderFile(filePath));
+unsigned int createFragmentShader(const char *filePath) {
+  auto fileContent = readShaderFile(filePath);
+  auto shader = createShader(GL_FRAGMENT_SHADER, fileContent);
+
+  free(fileContent);
+  return shader;
 }
 
 unsigned int createShaderProgram() {
+
   auto vertexShader = createVertexShader("../shaders/vertex.glsl");
   auto fragmentShader = createFragmentShader("../shaders/fragment.glsl");
 
@@ -72,7 +76,7 @@ unsigned int createShaderProgram() {
     glGetShaderiv(shaderProgram, GL_INFO_LOG_LENGTH, &length);
 
     glGetShaderInfoLog(shaderProgram, length, &length, message);
-    std::cout << "unable to create shader program: " << message << std::endl;
+    fprintf(stderr, "unable to create shader program: %s\n", message);
   }
 
   glDeleteShader(vertexShader);

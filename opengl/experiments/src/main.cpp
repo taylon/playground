@@ -1,4 +1,4 @@
-#include <iostream>
+#include <stdio.h>
 #include <cmath>
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -34,7 +34,8 @@ void processInput(GLFWwindow *window, float timeSinceLastFrame) {
     moveCamera(cameraSpeed, Left);
 }
 
-void mouseCallback(GLFWwindow *window, double xPosition, double yPosition) {
+void cursorPositionCallback(GLFWwindow *window, double xPosition,
+                            double yPosition) {
   cameraLookAround(xPosition, yPosition);
 }
 
@@ -45,18 +46,19 @@ void scrollCallback(GLFWwindow *window, double xoffset, double yoffset) {
 int main(void) {
   // init glfw
   glfwInit();
-  auto window = createWindow(800, 600);
-  glfwMakeContextCurrent(window);
-  glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
+  auto window = createWindow(800, 600, framebufferSizeCallback, scrollCallback,
+                             cursorPositionCallback);
+  if (window == NULL) {
+    fprintf(stderr, "unable to create window\n");
 
-  glfwSetScrollCallback(window, scrollCallback);
-  glfwSetCursorPosCallback(window, mouseCallback);
-  glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glfwTerminate();
+    exit(EXIT_FAILURE);
+  }
 
   // Setup OpenGL
   if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-    std::cout << "Failed to initialize GLAD" << std::endl;
-    return -1;
+    fprintf(stderr, "failed to load OpenGL functions pointers\n");
+    exit(EXIT_FAILURE);
   }
 
   glEnable(GL_DEPTH_TEST);
@@ -184,7 +186,7 @@ int main(void) {
 
     glBindVertexArray(vertexArrayObject);
     for (auto i = 0; i < 10; i++) {
-      glm::mat4 model = glm::mat4(1.0f);
+      auto model = glm::mat4(1.0f);
       model = glm::translate(model, cubePositions[i]);
 
       if (i % 3 == 0) {
