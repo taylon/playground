@@ -1,0 +1,6 @@
+# clang
+.clangd/
+compile_commands.json
+
+# binaries
+compositor
