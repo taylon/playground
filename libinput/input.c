@@ -8,6 +8,7 @@
 
 #include <libudev.h>
 #include <libinput.h>
+#include <xkbcommon/xkbcommon.h>
 
 static int open_restricted(const char *path, int flags, void *user_data) {
   int fd = open(path, flags);
@@ -28,7 +29,8 @@ const static struct libinput_interface interface = {
     .close_restricted = close_restricted,
 };
 
-void handle_keyboard_key(struct libinput_event *event) {
+void handle_keyboard_key(struct libinput_event *event,
+                         struct xkb_state *xkb_state) {
   struct libinput_event_keyboard *keyboard_event =
       libinput_event_get_keyboard_event(event);
 
@@ -36,12 +38,18 @@ void handle_keyboard_key(struct libinput_event *event) {
 
   enum libinput_key_state state =
       libinput_event_keyboard_get_key_state(keyboard_event);
+
+  char utf8_key[128];
+  // STUDY(taylon): why does the keycode need to be + 8?
+  xkb_state_key_get_utf8(xkb_state, keycode + 8, utf8_key, sizeof(utf8_key));
+
   switch (state) {
-  case LIBINPUT_KEY_STATE_RELEASED:
-    printf("Released %i\n", keycode);
+  case LIBINPUT_KEY_STATE_RELEASED:;
+    printf("Released '%s'\n", utf8_key);
     break;
+
   case LIBINPUT_KEY_STATE_PRESSED:
-    printf("Pressed %i\n", keycode);
+    printf("Pressed '%s'\n", utf8_key);
     break;
   }
 }
@@ -62,6 +70,15 @@ int main(void) {
 
   libinput_udev_assign_seat(li_context, "seat0");
 
+  struct xkb_rule_names rules = {0};
+  struct xkb_context *xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+  if (!xkb_context) {
+    puts("Unable to create xkb context");
+  }
+  struct xkb_keymap *keymap =
+      xkb_map_new_from_names(xkb_context, &rules, XKB_KEYMAP_COMPILE_NO_FLAGS);
+  struct xkb_state *xkb_state = xkb_state_new(keymap);
+
   for (;;) {
     if (libinput_dispatch(li_context) != 0) {
       fprintf(stderr, "libinput_dispatch failed: %s\n", strerror(errno));
@@ -75,14 +92,18 @@ int main(void) {
 
       switch (event_type) {
       case LIBINPUT_EVENT_DEVICE_ADDED:;
-        const char *name = libinput_device_get_name(libinput_dev);
-        printf("Device added: %s\n", name);
+        printf("Device added: %s\n", libinput_device_get_name(libinput_dev));
+        break;
 
+      case LIBINPUT_EVENT_POINTER_MOTION:;
+        puts("Pointer Motion");
         break;
 
       case LIBINPUT_EVENT_KEYBOARD_KEY:
-        handle_keyboard_key(event);
+        handle_keyboard_key(event, xkb_state);
+
         break;
+
       default:
         fprintf(stderr, "Unknown event: %d\n", event_type);
         break;

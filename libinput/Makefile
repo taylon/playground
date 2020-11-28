@@ -1,6 +1,6 @@
 CFLAGS=-std=c11 -pedantic -Wall -O0 -g
 
-LIBS=$(shell pkg-config --cflags --libs libinput libudev)
+LIBS=$(shell pkg-config --cflags --libs libinput libudev xkbcommon)
 
 all: run
 

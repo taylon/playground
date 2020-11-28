@@ -834,7 +834,6 @@ static void seat_request_cursor(struct wl_listener *listener, void *data) {
  */
 static void seat_request_set_selection(struct wl_listener *listener,
                                        void *data) {
-
   Server *server = wl_container_of(listener, server, request_set_selection);
   struct wlr_seat_request_set_selection_event *event = data;
   wlr_seat_set_selection(server->seat, event->source, event->serial);
