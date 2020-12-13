@@ -1,0 +1,28 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-std=c11",
+      "-Wall",
+      "-O0",
+      "-g",
+      "-o",
+      "drawing",
+      "drawing.c",
+      "-I/usr/include/libdrm",
+      "-I/usr/include/libkms",
+      "-I/usr/include/cairo",
+      "-I/usr/include/lzo",
+      "-I/usr/include/libpng16",
+      "-I/usr/include/freetype2",
+      "-I/usr/include/harfbuzz",
+      "-I/usr/include/glib-2.0",
+      "-I/usr/lib/glib-2.0/include",
+      "-I/usr/include/pixman-1"
+    ],
+    "directory": "/home/taylon/Development/playground/linux_drm",
+    "file": "/home/taylon/Development/playground/linux_drm/drawing.c",
+    "output": "/home/taylon/Development/playground/linux_drm/drawing.o"
+  }
+]
