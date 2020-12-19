@@ -8,8 +8,12 @@ modeset: modeset.c
 	@bear -- gcc $(CFLAGS) -o modeset $< $(LIBS)
 	@./$@
 
+double: double_buffering.c
+	@bear -- gcc $(CFLAGS) -o $@ $< $(LIBS)
+	@./$@
+
 page_flip: page_flip.c
-	@bear -- gcc $(CFLAGS) -o page_flip $< $(LIBS)
+	@bear -- gcc $(CFLAGS) -o $@ $< $(LIBS)
 	@./$@
 
 drawing: drawing.c

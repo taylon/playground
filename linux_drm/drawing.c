@@ -15,8 +15,6 @@
 
 #define M_PI 3.14159265358979323846
 
-void draw(unsigned char *addr, int width, int height, int pitch) {}
-
 static uint8_t next_color(bool *up, uint8_t current, unsigned int mod) {
   uint8_t next;
 
@@ -27,6 +25,82 @@ static uint8_t next_color(bool *up, uint8_t current, unsigned int mod) {
   }
 
   return next;
+}
+
+typedef struct FrameBuffer {
+  uint32_t id;
+
+  uint32_t width;
+  uint32_t height;
+
+  uint32_t pitch;
+  uint32_t size;
+  uint32_t bytes_per_pixel;
+
+  uint32_t handle;
+  uint8_t *pixels;
+} FrameBuffer;
+
+int create_framebuffer(int video_card_fd, FrameBuffer *framebuffer) {
+  // TODO(taylon): we rely on width and height to exist on frame_buffer by the
+  // time that this function is called, should we get width and height as
+  // parameters? if not, should we have at least an "assert" here?
+  struct drm_mode_create_dumb framebuffer_data;
+  memset(&framebuffer_data, 0, sizeof(framebuffer_data));
+  framebuffer_data.width = framebuffer->width;
+  framebuffer_data.height = framebuffer->height;
+  framebuffer_data.bpp = 32;
+
+  int err =
+      drmIoctl(video_card_fd, DRM_IOCTL_MODE_CREATE_DUMB, &framebuffer_data);
+  if (err < 0) {
+    fprintf(stderr, "cannot create dumb buffer (%d): %m\n", errno);
+    return -errno;
+  }
+
+  framebuffer->pitch = framebuffer_data.pitch;
+  framebuffer->size = framebuffer_data.size;
+  framebuffer->handle = framebuffer_data.handle;
+  framebuffer->bytes_per_pixel = framebuffer_data.bpp;
+
+  // create framebuffer object for the dumb-buffer
+  err = drmModeAddFB(video_card_fd, framebuffer->width, framebuffer->height, 24,
+                     framebuffer->bytes_per_pixel, framebuffer->pitch,
+                     framebuffer->handle, &framebuffer->id);
+  if (err) {
+    fprintf(stderr, "cannot create framebuffer (%d): %m\n", errno);
+    err = -errno;
+
+    struct drm_mode_destroy_dumb destroy_buffer_request;
+    memset(&destroy_buffer_request, 0, sizeof(destroy_buffer_request));
+    destroy_buffer_request.handle = framebuffer_data.handle;
+    drmIoctl(video_card_fd, DRM_IOCTL_MODE_DESTROY_DUMB,
+             &destroy_buffer_request);
+    return err;
+  }
+
+  /* prepare buffer for memory mapping */
+  struct drm_mode_map_dumb map_request;
+  memset(&map_request, 0, sizeof(map_request));
+  map_request.handle = framebuffer_data.handle;
+  err = drmIoctl(video_card_fd, DRM_IOCTL_MODE_MAP_DUMB, &map_request);
+  if (err) {
+    fprintf(stderr, "cannot map dumb buffer (%d): %m\n", errno);
+    drmModeRmFB(video_card_fd, framebuffer->id);
+    return -errno;
+  }
+
+  // perform actual memory mapping
+  framebuffer->pixels = mmap(0, framebuffer_data.size, PROT_READ | PROT_WRITE,
+                             MAP_SHARED, video_card_fd, map_request.offset);
+  if (framebuffer->pixels == MAP_FAILED) {
+    fprintf(stderr, "cannot mmap dumb buffer (%d): %m\n", errno);
+    drmModeRmFB(video_card_fd, framebuffer->id);
+    return -errno;
+  }
+  memset(framebuffer->pixels, 0, framebuffer->size);
+
+  return 0;
 }
 
 int main(int argc, char *argv[]) {
@@ -96,57 +170,15 @@ int main(int argc, char *argv[]) {
     exit(EXIT_FAILURE);
   }
 
-  // create dumb buffer
-  struct drm_mode_create_dumb framebuffer_data;
-  memset(&framebuffer_data, 0, sizeof(framebuffer_data));
-  framebuffer_data.width = mode.hdisplay;
-  framebuffer_data.height = mode.vdisplay;
-  framebuffer_data.bpp = 32;
-
-  int err =
-      drmIoctl(video_card_fd, DRM_IOCTL_MODE_CREATE_DUMB, &framebuffer_data);
-  if (err < 0) {
-    fprintf(stderr, "cannot create dumb buffer (%d): %m\n", errno);
-    return -errno;
-  }
-
-  // create framebuffer object for the dumb-buffer
-  uint32_t framebuffer_id;
-  err = drmModeAddFB(video_card_fd, mode.hdisplay, mode.vdisplay, 24,
-                     framebuffer_data.bpp, framebuffer_data.pitch,
-                     framebuffer_data.handle, &framebuffer_id);
+  // create framebuffer
+  FrameBuffer *framebuffer = calloc(1, sizeof(FrameBuffer));
+  framebuffer->width = mode.hdisplay;
+  framebuffer->height = mode.vdisplay;
+  int err = create_framebuffer(video_card_fd, framebuffer);
   if (err) {
-    fprintf(stderr, "cannot create framebuffer (%d): %m\n", errno);
-    err = -errno;
-
-    struct drm_mode_destroy_dumb destroy_buffer_request;
-    memset(&destroy_buffer_request, 0, sizeof(destroy_buffer_request));
-    destroy_buffer_request.handle = framebuffer_data.handle;
-    drmIoctl(video_card_fd, DRM_IOCTL_MODE_DESTROY_DUMB,
-             &destroy_buffer_request);
-    return err;
+    fprintf(stderr, "unable to create framebuffer (%d): %m\n", errno);
+    exit(EXIT_FAILURE);
   }
-
-  /* prepare buffer for memory mapping */
-  struct drm_mode_map_dumb map_request;
-  memset(&map_request, 0, sizeof(map_request));
-  map_request.handle = framebuffer_data.handle;
-  err = drmIoctl(video_card_fd, DRM_IOCTL_MODE_MAP_DUMB, &map_request);
-  if (err) {
-    fprintf(stderr, "cannot map dumb buffer (%d): %m\n", errno);
-    err = -errno;
-    drmModeRmFB(video_card_fd, framebuffer_id);
-  }
-
-  // perform actual memory mapping
-  uint8_t *framebuffer = mmap(0, framebuffer_data.size, PROT_READ | PROT_WRITE,
-                              MAP_SHARED, video_card_fd, map_request.offset);
-  if (framebuffer == MAP_FAILED) {
-    fprintf(stderr, "cannot mmap dumb buffer (%d): %m\n", errno);
-    err = -errno;
-    drmModeRmFB(video_card_fd, framebuffer_id);
-  }
-  memset(framebuffer, 0, framebuffer_data.size);
 
   // modeset
   // we save the crtc before we change it, that way we can restore it later
@@ -158,13 +190,13 @@ int main(int argc, char *argv[]) {
     exit(EXIT_FAILURE);
   }
 
-  err = drmModeSetCrtc(video_card_fd, encoder->crtc_id, framebuffer_id, 0, 0,
+  err = drmModeSetCrtc(video_card_fd, encoder->crtc_id, framebuffer->id, 0, 0,
                        &connector->connector_id,
                        1, // element count of the connectors array above
                        &mode);
   if (err) {
     fprintf(stderr, "modesetting failed: %s\n", strerror(errno));
-    drmModeRmFB(video_card_fd, framebuffer_id);
+    drmModeRmFB(video_card_fd, framebuffer->id);
     exit(EXIT_FAILURE);
   }
 
@@ -183,7 +215,7 @@ int main(int argc, char *argv[]) {
 
   for (int vertical_position = 0; vertical_position < (display_height - 200);
        vertical_position += 10) {
-    memset(framebuffer, 1, framebuffer_data.size);
+    memset(framebuffer->pixels, 1, framebuffer->size);
 
     r = next_color(&r_up, r, 20);
     g = next_color(&g_up, g, 10);
@@ -196,9 +228,9 @@ int main(int argc, char *argv[]) {
         // NOTE(taylon): see the notebook for the full reasoning about this
         // whole thing.
         // calculating the offset: (pitch * x) + (y * (bpp / 8))
-        int offset = (framebuffer_data.pitch * vertical) +
-                     (horizontal * (framebuffer_data.bpp / 8));
-        *(uint32_t *)&framebuffer[offset] = (r << 16) | (g << 8) | b;
+        int offset = (framebuffer->pitch * vertical) +
+                     (horizontal * (framebuffer->bytes_per_pixel / 8));
+        *(uint32_t *)&framebuffer->pixels[offset] = (r << 16) | (g << 8) | b;
       }
     }
 
@@ -212,13 +244,13 @@ int main(int argc, char *argv[]) {
   drmModeFreeCrtc(crtc);
 
   // unmap framebuffer and then delete it
-  munmap(framebuffer, framebuffer_data.size);
-  drmModeRmFB(video_card_fd, framebuffer_id);
+  munmap(framebuffer, framebuffer->size);
+  drmModeRmFB(video_card_fd, framebuffer->id);
 
   // delete dumb buffer
   struct drm_mode_destroy_dumb dreq;
   memset(&dreq, 0, sizeof(dreq));
-  dreq.handle = framebuffer_data.handle;
+  dreq.handle = framebuffer->handle;
   drmIoctl(video_card_fd, DRM_IOCTL_MODE_DESTROY_DUMB, &dreq);
 
   exit(EXIT_SUCCESS);
