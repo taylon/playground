@@ -1,0 +1,19 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-std=c11",
+      "-Wall",
+      "-O0",
+      "-g",
+      "-o",
+      "drm_game",
+      "drm_game.c",
+      "-I/usr/include/libdrm"
+    ],
+    "directory": "/home/taylon/Development/drm_game",
+    "file": "/home/taylon/Development/drm_game/drm_game.c",
+    "output": "/home/taylon/Development/drm_game/drm_game.o"
+  }
+]
