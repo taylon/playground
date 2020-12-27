@@ -7,19 +7,10 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/mman.h>
-#include <time.h>
 #include <errno.h>
 
-#include <libkms.h>
 #include <xf86drm.h>
 #include <xf86drmMode.h>
-
-#define M_PI 3.14159265358979323846
-
-typedef struct Display {
-  uint32_t width;
-  uint32_t height;
-} Display;
 
 typedef struct FrameBuffer {
   uint32_t id;
@@ -35,69 +26,72 @@ typedef struct FrameBuffer {
   uint8_t *pixels;
 } FrameBuffer;
 
-int create_framebuffer(int video_card_fd, struct kms_driver *kms_driver,
-                       FrameBuffer *framebuffer) {
+int create_framebuffer(int video_card_fd, FrameBuffer *framebuffer) {
   // TODO(taylon): we rely on width and height to exist on frame_buffer by the
   // time that this function is called, should we get width and height as
   // parameters? if not, should we have at least an "assert" here?
-  struct kms_bo *buffer_object;
-  unsigned buffer_object_attributes[] = {KMS_WIDTH,
-                                         framebuffer->width,
-                                         KMS_HEIGHT,
-                                         framebuffer->height,
-                                         KMS_BO_TYPE,
-                                         KMS_BO_TYPE_SCANOUT_X8R8G8B8,
-                                         KMS_TERMINATE_PROP_LIST};
-  if (kms_bo_create(kms_driver, buffer_object_attributes, &buffer_object)) {
-    fprintf(stderr, "unable to create buffer object: %s\n", strerror(errno));
+  struct drm_mode_create_dumb framebuffer_data;
+  memset(&framebuffer_data, 0, sizeof(framebuffer_data));
+  framebuffer_data.width = framebuffer->width;
+  framebuffer_data.height = framebuffer->height;
+  framebuffer_data.bpp = 32;
+
+  int err =
+      drmIoctl(video_card_fd, DRM_IOCTL_MODE_CREATE_DUMB, &framebuffer_data);
+  if (err < 0) {
+    fprintf(stderr, "cannot create dumb buffer (%d): %m\n", errno);
     return -errno;
   }
 
-  if (kms_bo_get_prop(buffer_object, KMS_PITCH, &framebuffer->pitch)) {
-    fprintf(stderr, "unable to get framebuffer pitch: %s\n", strerror(errno));
-    kms_bo_destroy(&buffer_object);
-    return -errno;
-  }
-
-  if (kms_bo_get_prop(buffer_object, KMS_HANDLE, &framebuffer->handle)) {
-    fprintf(stderr, "unable to get the framebuffer handle: %s\n",
-            strerror(errno));
-    kms_bo_destroy(&buffer_object);
-    return -errno;
-  }
-
-  // map the bo to user space buffer
-  if (kms_bo_map(buffer_object, (void *)&framebuffer->pixels)) {
-    fprintf(stderr, "unable to map the framebuffer: %s\n", strerror(errno));
-    kms_bo_destroy(&buffer_object);
-    return -errno;
-  }
-
-  kms_bo_unmap(buffer_object);
+  framebuffer->pitch = framebuffer_data.pitch;
+  framebuffer->size = framebuffer_data.size;
+  framebuffer->handle = framebuffer_data.handle;
+  framebuffer->bytes_per_pixel = framebuffer_data.bpp;
 
   // create framebuffer object for the dumb-buffer
-  framebuffer->bytes_per_pixel = 32;
-  int err = drmModeAddFB(video_card_fd, framebuffer->width, framebuffer->height,
-                         24, framebuffer->bytes_per_pixel, framebuffer->pitch,
-                         framebuffer->handle, &framebuffer->id);
+  err = drmModeAddFB(video_card_fd, framebuffer->width, framebuffer->height, 24,
+                     framebuffer->bytes_per_pixel, framebuffer->pitch,
+                     framebuffer->handle, &framebuffer->id);
   if (err) {
     fprintf(stderr, "cannot create framebuffer (%d): %m\n", errno);
+    err = -errno;
+
+    struct drm_mode_destroy_dumb destroy_buffer_request;
+    memset(&destroy_buffer_request, 0, sizeof(destroy_buffer_request));
+    destroy_buffer_request.handle = framebuffer_data.handle;
+    drmIoctl(video_card_fd, DRM_IOCTL_MODE_DESTROY_DUMB,
+             &destroy_buffer_request);
+    return err;
+  }
+
+  /* prepare buffer for memory mapping */
+  struct drm_mode_map_dumb map_request;
+  memset(&map_request, 0, sizeof(map_request));
+  map_request.handle = framebuffer_data.handle;
+  err = drmIoctl(video_card_fd, DRM_IOCTL_MODE_MAP_DUMB, &map_request);
+  if (err) {
+    fprintf(stderr, "cannot map dumb buffer (%d): %m\n", errno);
+    drmModeRmFB(video_card_fd, framebuffer->id);
     return -errno;
   }
 
-  // TODO(taylon): should libkms expose the framebuffer size? That would be
-  // great for my little experiment here but I have not idea if that is a real
-  // use case
-  framebuffer->size =
-      framebuffer->pitch * ((framebuffer->height + 4 - 1) & ~(4 - 1));
+  // perform actual memory mapping
+  framebuffer->pixels = mmap(0, framebuffer_data.size, PROT_READ | PROT_WRITE,
+                             MAP_SHARED, video_card_fd, map_request.offset);
+  if (framebuffer->pixels == MAP_FAILED) {
+    fprintf(stderr, "cannot mmap dumb buffer (%d): %m\n", errno);
+    drmModeRmFB(video_card_fd, framebuffer->id);
+    return -errno;
+  }
+  memset(framebuffer->pixels, 0, framebuffer->size);
 
   return 0;
 }
 
 int main(int argc, char *argv[]) {
-  int video_card_fd = open("/dev/dri/card1", O_RDWR);
+  int video_card_fd = open("/dev/dri/card0", O_RDWR);
   if (video_card_fd < 0) {
-    fprintf(stderr, "unable to open /dev/dri/card1: %s\n", strerror(errno));
+    fprintf(stderr, "unable to open /dev/dri/card0: %s\n", strerror(errno));
     exit(EXIT_FAILURE);
   }
 
@@ -134,7 +128,6 @@ int main(int argc, char *argv[]) {
   drmModeModeInfo mode = connector->modes[1];
   fprintf(stderr, "Mode: %dx%d - %dhz\n", mode.hdisplay, mode.vdisplay,
           mode.vrefresh);
-  Display display = {.height = mode.vdisplay, .width = mode.hdisplay};
   // prints all modes
   /* for (int i = 0; i < connector->count_modes; i++) { */
   /*   drmModeModeInfo mode = connector->modes[i]; */
@@ -162,29 +155,21 @@ int main(int argc, char *argv[]) {
     exit(EXIT_FAILURE);
   }
 
-  // kms_create will use the correct driver depending on our gpu
-  // the driver is used later to create framebuffers
-  struct kms_driver *kms_driver;
-  if (kms_create(video_card_fd, &kms_driver)) {
-    fprintf(stderr, "unable to create kms driver: %s\n", strerror(errno));
-    drmModeFreeResources(resources);
-    exit(EXIT_FAILURE);
-  }
-
   // alloc two buffers so we can flip between them when rendering
   FrameBuffer *framebuffers = calloc(2, sizeof(FrameBuffer));
-  framebuffers[0].height = display.height;
-  framebuffers[1].height = display.height;
-  framebuffers[0].width = display.width;
-  framebuffers[1].width = display.width;
-  int err = create_framebuffer(video_card_fd, kms_driver, &framebuffers[0]);
-  int err_2 = create_framebuffer(video_card_fd, kms_driver, &framebuffers[1]);
+  framebuffers[0].height = mode.vdisplay;
+  framebuffers[1].height = mode.vdisplay;
+  framebuffers[0].width = mode.hdisplay;
+  framebuffers[1].width = mode.hdisplay;
+  int err = create_framebuffer(video_card_fd, &framebuffers[0]);
+  int err_2 = create_framebuffer(video_card_fd, &framebuffers[1]);
   if (err || err_2) {
     fprintf(stderr, "unable to create framebuffers (%d): %m\n", errno);
     exit(EXIT_FAILURE);
   }
-  int front_framebuffer_index = 0;
+  int framebuffer_index = 0;
 
+  // modeset
   // we save the crtc before we change it, that way we can restore
   // it later
   drmModeCrtcPtr crtc = drmModeGetCrtc(video_card_fd, encoder->crtc_id);
@@ -196,47 +181,43 @@ int main(int argc, char *argv[]) {
   }
 
   err = drmModeSetCrtc(video_card_fd, encoder->crtc_id,
-                       framebuffers[front_framebuffer_index].id, 0, 0,
+                       framebuffers[framebuffer_index].id, 0, 0,
                        &connector->connector_id,
                        1, // element count of the connectors array above
                        &mode);
   if (err) {
     fprintf(stderr, "modesetting failed: %s\n", strerror(errno));
-    drmModeRmFB(video_card_fd, framebuffers[front_framebuffer_index].id);
+    drmModeRmFB(video_card_fd, framebuffers[framebuffer_index].id);
     exit(EXIT_FAILURE);
   }
-
-  srand(time(NULL));
-  uint8_t r = rand() % 0xff;
-  uint8_t g = rand() % 0xff;
-  uint8_t b = rand() % 0xff;
 
   int rect_width = 400;
   int rect_height = 200;
 
-  FrameBuffer *back_framebuffer;
-  for (int vertical_position = 0; vertical_position < (display.height - 200);
+  FrameBuffer *framebuffer;
+  for (int vertical_position = 0; vertical_position < (mode.vdisplay - 200);
        vertical_position += 20) {
-    back_framebuffer = &framebuffers[front_framebuffer_index ^ 1];
-    memset(back_framebuffer->pixels, 1, back_framebuffer->size);
+    framebuffer = &framebuffers[framebuffer_index ^ 1];
+
+    memset(framebuffer->pixels, 1, framebuffer->size);
 
     for (int vertical = vertical_position;
          vertical < (vertical_position + rect_height); ++vertical) {
-      for (int horizontal = ((display.width / 2) - rect_width);
-           horizontal < ((display.width / 2) + rect_width); ++horizontal) {
-        int offset = (back_framebuffer->pitch * vertical) +
-                     (horizontal * (back_framebuffer->bytes_per_pixel / 8));
-        *(uint32_t *)&back_framebuffer->pixels[offset] =
-            (r << 16) | (g << 8) | b;
+      for (int horizontal = ((framebuffer->width / 2) - rect_width);
+           horizontal < ((framebuffer->width / 2) + rect_width); ++horizontal) {
+        int offset = (framebuffer->pitch * vertical) +
+                     (horizontal * (framebuffer->bytes_per_pixel / 8));
+        *(uint32_t *)&framebuffer->pixels[offset] =
+            (255 << 16) | (255 << 8) | 255;
       }
     }
 
-    err = drmModeSetCrtc(video_card_fd, encoder->crtc_id, back_framebuffer->id,
-                         0, 0, &connector->connector_id, 1, &mode);
+    err = drmModeSetCrtc(video_card_fd, encoder->crtc_id, framebuffer->id, 0, 0,
+                         &connector->connector_id, 1, &mode);
     if (err)
       fprintf(stderr, "unable to flip buffers (%d): %m\n", errno);
     else
-      front_framebuffer_index ^= 1;
+      framebuffer_index ^= 1;
 
     usleep(100000);
   }
