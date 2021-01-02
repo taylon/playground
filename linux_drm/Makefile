@@ -8,6 +8,10 @@ modeset: modeset.c
 	@bear -- gcc $(CFLAGS) -o modeset $< $(LIBS)
 	@./$@
 
+atomic: modeset-atomic.c
+	@bear -- gcc $(CFLAGS) -o $@ $< $(LIBS)
+	@./$@
+
 double: double_buffering.c
 	@bear -- gcc $(CFLAGS) -o $@ $< $(LIBS)
 	@./$@
